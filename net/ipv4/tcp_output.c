@@ -2601,10 +2601,11 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	unsigned int cur_mss;
-	int err;
 
-	/* Inconslusive MTU probe */
-	if (icsk->icsk_mtup.probe_size) {
+	int diff, len, err;
+
+	/* Inconclusive MTU probe */
+	if (icsk->icsk_mtup.probe_size)
 		icsk->icsk_mtup.probe_size = 0;
 	}
 
