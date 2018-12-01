@@ -215,12 +215,15 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				qcom,start-idx = <0>;
-				qcom,idx-len = <26>;
-				qcom,duty-pcts =
-					[3C 3C 3B 3A 3B 37 35 33 31 2E 2A 27 23
-					 1F 1B 17 13 0E 09 05 00 00 00 00 00 00];
-				qcom,use-blink;
+				qcom,duty-ms = <20>;
+				qcom,start-idx = <1>;
+				qcom,idx-len = <11>;
+				qcom,duty-pcts = [00 05 0a 0f 14 1d 28 32 3c 4b 64];
+				qcom,lut-flags = <0x1f>;
+				qcom,ramp-step-ms = <100>;
+				qcom,pause-lo = <2000>;
+				qcom,pause-hi = <1000>;
+        			qcom,use-blink;
 			};
 
 			green_led: qcom,rgb_1 {
