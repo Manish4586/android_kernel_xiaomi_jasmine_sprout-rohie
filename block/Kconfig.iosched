@@ -32,6 +32,10 @@ config IOSCHED_DEADLINE
 	  a new point in the service tree and doing a batch of IO from there
 	  in case of expiry.
 
+config IOSCHED_ROHIE
+	tristate "Rohie I/O scheduler"
+	default y
+
 config IOSCHED_CFQ
 	tristate "CFQ I/O scheduler"
 	default y
@@ -63,6 +67,9 @@ choice
 	config DEFAULT_CFQ
 		bool "CFQ" if IOSCHED_CFQ=y
 
+	config DEFAULT_ROHIE
+		bool "ROHIE" if IOSCHED_ROHIE=y
+
 	config DEFAULT_NOOP
 		bool "No-op"
 
@@ -72,6 +79,7 @@ config DEFAULT_IOSCHED
 	string
 	default "deadline" if DEFAULT_DEADLINE
 	default "cfq" if DEFAULT_CFQ
+	default "rohie" if DEFAULT_ROHIE
 	default "noop" if DEFAULT_NOOP
 
 endmenu
