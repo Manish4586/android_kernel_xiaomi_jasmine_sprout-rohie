@@ -118,8 +118,6 @@ ifeq ($(KERNEL_BUILD), 0)
 
 	ifeq ($(CONFIG_ARCH_SDM660), y)
 	CONFIG_QCACLD_FEATURE_METERING := y
-	#Flag to enable FIPS
-	CONFIG_WLAN_FEATURE_FIPS := y
 	endif
 
 	ifeq ($(CONFIG_ARCH_SDM630), y)
@@ -301,9 +299,6 @@ endif
 #Enable beacon reporting feature
 CONFIG_WLAN_BEACON_REPORTING := y
 
-#Enable/Disable FW thermal mitigation feature
-CONFIG_WLAN_FW_THERMAL_MITIGATION := n
-
 # Feature flags which are not (currently) configurable via Kconfig
 
 #Whether to build debug version
@@ -313,13 +308,7 @@ BUILD_DEBUG_VERSION := 0
 BUILD_DIAG_VERSION := 0
 
 #Do we panic on bug?  default is to warn
-ifeq ($(CONFIG_SLUB_DEBUG), y)
-	PANIC_ON_BUG := 1
-else ifeq ($(CONFIG_PERF_DEBUG), y)
-	PANIC_ON_BUG := 1
-else
-	PANIC_ON_BUG := 0
-endif
+PANIC_ON_BUG := 0
 
 #Enable OL debug and wmi unified functions
 CONFIG_ATH_PERF_PWR_OFFLOAD := 1
@@ -1166,10 +1155,6 @@ ifeq ($(CONFIG_MPC_UT_FRAMEWORK),y)
 WMA_OBJS +=	$(WMA_SRC_DIR)/wma_utils_ut.o
 endif
 
-ifeq ($(CONFIG_WLAN_FW_THERMAL_MITIGATION), y)
-WMA_OBJS += $(WMA_SRC_DIR)/wma_thermal.o
-endif
-
 ############## PLD ##########
 PLD_DIR := core/pld
 PLD_INC_DIR := $(PLD_DIR)/inc
@@ -1321,10 +1306,6 @@ CDEFINES :=	-DANI_LITTLE_BYTE_ENDIAN \
 		-DWMI_CMD_STRINGS \
 		-DCONFIG_HDD_INIT_WITH_RTNL_LOCK \
 		-DMWS_COEX
-
-ifeq ($(CONFIG_WLAN_FEATURE_FIPS), y)
-CDEFINES += -DWLAN_FEATURE_FIPS
-endif
 
 ifneq ($(CONFIG_HIF_USB), 1)
 ifeq ($(BUILD_DEBUG_VERSION), 1)
@@ -1484,10 +1465,6 @@ endif
 
 ifeq ($(CONFIG_WLAN_BEACON_REPORTING),y)
 CDEFINES += -DNTH_BEACON_OFFLOAD
-endif
-
-ifeq ($(CONFIG_WLAN_FW_THERMAL_MITIGATION),y)
-CDEFINES += -DFW_THERMAL_THROTTLE_SUPPORT
 endif
 
 ifeq ($(BUILD_DIAG_VERSION),1)
@@ -1975,6 +1952,13 @@ EXTRA_CFLAGS += -Wmissing-prototypes
 ifeq ($(call cc-option-yn, -Wheader-guard),y)
 EXTRA_CFLAGS += -Wheader-guard
 endif
+
+# To build without debug just ignore not used code.
+EXTRA_CFLAGS += $(call cc-disable-warning,unused-variable,)
+EXTRA_CFLAGS += $(call cc-disable-warning,unused-function,)
+
+EXTRA_CFLAGS += $(call cc-option, -g0)
+EXTRA_CFLAGS += $(call cc-option, -Os)
 
 # If the module name is not "wlan", then the define MULTI_IF_NAME to be the
 # same a the QCA CHIP name. The host driver will then append MULTI_IF_NAME to

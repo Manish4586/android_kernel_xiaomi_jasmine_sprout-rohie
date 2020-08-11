@@ -55,7 +55,6 @@
 #include <cds_utils.h>
 #include "pld_common.h"
 #include "wlan_hdd_regulatory.h"
-#include "wlan_hdd_power.h"
 
 #include "wma.h"
 #ifdef WLAN_DEBUG
@@ -7883,12 +7882,6 @@ int wlan_hdd_restore_channels(hdd_context_t *hdd_ctx)
 	status = sme_update_channel_list(hdd_ctx->hHal);
 	if (status)
 		hdd_err("Can't Restore channel list");
-	else
-		/*
-		 * Free the cache channels when the
-		 * disabled channels are restored
-		 */
-		wlan_hdd_free_cache_channels(hdd_ctx);
 	EXIT();
 
 	return 0;
@@ -8001,6 +7994,7 @@ int wlan_hdd_cfg80211_start_bss(hdd_adapter_t *pHostapdAdapter,
 	bool disable_fw_tdls_state = false;
 	uint8_t ignore_cac = 0;
 	uint8_t beacon_fixed_len;
+	hdd_adapter_t *sta_adapter;
 
 	ENTER();
 
@@ -8034,7 +8028,12 @@ int wlan_hdd_cfg80211_start_bss(hdd_adapter_t *pHostapdAdapter,
 	 * disconnect the STA interface first if connection or key exchange is
 	 * in progress and then start SAP interface.
 	 */
-	hdd_abort_ongoing_sta_connection(pHddCtx);
+	sta_adapter = hdd_get_sta_connection_in_progress(pHddCtx);
+	if (sta_adapter) {
+		hdd_debug("Disconnecting STA with session id: %d",
+			  sta_adapter->sessionId);
+		wlan_hdd_disconnect(sta_adapter, eCSR_DISCONNECT_REASON_DEAUTH);
+	}
 
 	/*
 	 * Disable Roaming on all adapters before starting bss
@@ -8576,8 +8575,6 @@ int wlan_hdd_cfg80211_start_bss(hdd_adapter_t *pHostapdAdapter,
 		}
 	}
 
-	hdd_thermal_mitigation_disable(pHddCtx);
-
 	if (!cds_set_connection_in_progress(true)) {
 		hdd_err("Can't start BSS: set connnection in progress failed");
 		ret = -EINVAL;
@@ -8673,8 +8670,6 @@ error:
 		&pHostapdAdapter->sessionCtx.ap.acs_in_progress, 0);
 	wlan_hdd_undo_acs(pHostapdAdapter);
 
-	hdd_thermal_mitigation_enable(pHddCtx);
-
 enable_roaming:
 	/* Enable Roaming after start bss in case of failure */
 	wlan_hdd_enable_roaming(pHostapdAdapter);
@@ -8699,6 +8694,7 @@ static int __wlan_hdd_cfg80211_stop_ap(struct wiphy *wiphy,
 	hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR(dev);
 	hdd_context_t *pHddCtx = wiphy_priv(wiphy);
 	hdd_scaninfo_t *pScanInfo = NULL;
+	hdd_adapter_t *staAdapter = NULL;
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
 	QDF_STATUS qdf_status = QDF_STATUS_E_FAILURE;
 	tSirUpdateIE updateIE;
@@ -8708,7 +8704,6 @@ static int __wlan_hdd_cfg80211_stop_ap(struct wiphy *wiphy,
 	hdd_adapter_list_node_t *pAdapterNode = NULL;
 	hdd_adapter_list_node_t *pNext = NULL;
 	tsap_Config_t *pConfig;
-	hdd_adapter_t *staAdapter;
 
 	hdd_info("enter(%s)", netdev_name(dev));
 
@@ -8756,7 +8751,12 @@ static int __wlan_hdd_cfg80211_stop_ap(struct wiphy *wiphy,
 	 * the STA and complete the SAP operation. STA will reconnect
 	 * after SAP stop is done.
 	 */
-	hdd_abort_ongoing_sta_connection(pHddCtx);
+	staAdapter = hdd_get_sta_connection_in_progress(pHddCtx);
+	if (staAdapter) {
+		hdd_debug("Disconnecting STA with session id: %d",
+			  staAdapter->sessionId);
+		wlan_hdd_disconnect(staAdapter, eCSR_DISCONNECT_REASON_DEAUTH);
+	}
 
 	if (pAdapter->device_mode == QDF_SAP_MODE) {
 		wlan_hdd_del_station(pAdapter);
@@ -8907,9 +8907,8 @@ static int __wlan_hdd_cfg80211_stop_ap(struct wiphy *wiphy,
 		global_p2p_connection_status = P2P_NOT_ACTIVE;
 	}
 #endif
+	pAdapter->sessionId = HDD_SESSION_ID_INVALID;
 	wlan_hdd_check_conc_and_update_tdls_state(pHddCtx, false);
-	hdd_thermal_mitigation_enable(pHddCtx);
-
 	EXIT();
 	return ret;
 }
@@ -9023,7 +9022,7 @@ static void hdd_update_beacon_rate(hdd_adapter_t *adapter,
 	struct cfg80211_bitrate_mask *beacon_rate_mask;
 	enum  nl80211_band band;
 
-	band = params->chandef.chan->band;
+	band = (enum nl80211_band)params->chandef.chan->band;
 	beacon_rate_mask = &params->beacon_rate;
 	if (beacon_rate_mask->control[band].legacy) {
 		adapter->sessionCtx.ap.sapConfig.beacon_tx_rate =
