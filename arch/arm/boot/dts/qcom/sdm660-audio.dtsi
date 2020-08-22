@@ -39,7 +39,7 @@
 
 		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
-		qcom,cdc-vdd-mic-bias-current = <30400>;
+		qcom,cdc-vdd-mic-bias-current = <40400>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
 
@@ -71,7 +71,7 @@
 
 		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
-		qcom,cdc-vdd-mic-bias-current = <30400>;
+		qcom,cdc-vdd-mic-bias-current = <40400>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
 
@@ -140,15 +140,15 @@
 
 		cdc-vdda-cp-supply = <&pm660_s4>;
 		qcom,cdc-vdda-cp-voltage = <1900000 2050000>;
-		qcom,cdc-vdda-cp-current = <50000>;
+		qcom,cdc-vdda-cp-current = <65000>;
 
 		cdc-vdd-pa-supply = <&pm660_s4>;
 		qcom,cdc-vdd-pa-voltage = <2040000 2040000>;
-		qcom,cdc-vdd-pa-current = <260000>;
+		qcom,cdc-vdd-pa-current = <360000>;
 
 		cdc-vdd-mic-bias-supply = <&pm660l_l7>;
 		qcom,cdc-vdd-mic-bias-voltage = <3088000 3088000>;
-		qcom,cdc-vdd-mic-bias-current = <5000>;
+		qcom,cdc-vdd-mic-bias-current = <6500>;
 
 		qcom,cdc-mclk-clk-rate = <24576000>;
 
