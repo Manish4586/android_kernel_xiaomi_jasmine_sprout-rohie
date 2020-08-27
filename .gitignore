@@ -74,6 +74,16 @@ Module.symvers
 include/config
 include/generated
 arch/*/include/generated
+out
+sdm-all.sh
+sdm636.sh
+sdm636new.sh
+sdm636t.sh
+sdm660.sh
+sdm660new.sh
+sdm660l.sh
+sdm660j.sh
+sdm660jnew.sh
 
 # stgit generated dirs
 patches-*
