@@ -1,0 +1,12 @@
+&red_led {
+	linux,name = "red";
+	qcom,duty-pcts = [00 05 0a 0f 14 1d 28 32 3c 4b 64];
+	qcom,duty-ms = <20>;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <11>;
+	qcom,pause-lo = <2000>;
+	qcom,pause-hi = <1000>;
+	qcom,ramp-step-ms = <100>;
+	qcom,lut-flags = <0x1f>; /* loop, ramp up, reverse, pause hi, pause lo */
+	qcom,use-blink;
+};
