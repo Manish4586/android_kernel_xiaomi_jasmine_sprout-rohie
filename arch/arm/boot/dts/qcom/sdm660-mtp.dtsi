@@ -357,3 +357,14 @@
 		qcom,parallel-en-pin-polarity = <1>;
 	};
 };
+
+&firmware {
+	android {
+		fstab {
+			vendor {
+				mnt_flags = "ro,barrier=1";
+			};
+		};
+	};
+};
+
