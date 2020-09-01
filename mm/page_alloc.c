@@ -70,7 +70,6 @@
 
 #ifndef CONFIG_KERNEL_DEBUG
 inline void dump_page(struct page *page, const char *reason) {}
-EXPORT_SYMBOL(dump_page);
 #endif
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
