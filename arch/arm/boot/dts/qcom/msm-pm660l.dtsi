@@ -211,7 +211,6 @@
 				qcom,mode = "pwm";
 				pwms = <&pm660l_pwm_3 0 0>;
 				qcom,pwm-us = <1000>;
-				qcom,ramp-step-ms = <128>;
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
