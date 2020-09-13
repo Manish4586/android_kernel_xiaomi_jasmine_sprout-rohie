@@ -1751,9 +1751,9 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	} else {	/*video mode*/
 		pinfo->mipi.mode = DSI_VIDEO_MODE;
 		pinfo->type = MIPI_VIDEO_PANEL;
-		pinfo->mipi.vsync_enable = 0;
-		pinfo->mipi.hw_vsync_mode = 0;
-		pinfo->partial_update_enabled = 0;
+		pinfo->mipi.vsync_enable = 1;
+		pinfo->mipi.hw_vsync_mode = 1;
+		pinfo->partial_update_enabled = pinfo->partial_update_supported;
 	}
 
 	ctrl_pdata->panel_mode = pinfo->mipi.mode;
@@ -2190,7 +2190,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
     mdss_first_set_feature(pdata, -1,1,-1, -1, -1, -1);
 #endif
 	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
-		mipi->vsync_enable && mipi->hw_vsync_mode) {
+		if (mipi->vsync_enable && mipi->hw_vsync_mode) {
 		mdss_dsi_set_tear_on(ctrl_pdata);
 		if (mdss_dsi_is_te_based_esd(ctrl_pdata))
 			panel_update_te_irq(pdata, true);
@@ -2261,8 +2261,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 		}
 	}
 
-	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
-		mipi->vsync_enable && mipi->hw_vsync_mode) {
+	if (mipi->vsync_enable && mipi->hw_vsync_mode) {
 		if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
 			panel_update_te_irq(pdata, false);
 			atomic_dec(&ctrl_pdata->te_irq_ready);
@@ -4258,7 +4257,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			te_irq_registered = 1;
 			disable_irq_nosync(gpio_to_irq(pdata->panel_te_gpio));
 		}
-	}
 
 	rc = mdss_dsi_get_bridge_chip_params(pinfo, ctrl_pdata, pdev);
 	if (rc) {
