@@ -70,6 +70,14 @@ static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 struct snd_soc_codec *registered_digcodec;
 struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
+#ifdef CONFIG_SOUND_CONTROL
+struct sound_control {
+ 	int default_headphone_l_value;
+  	int default_headphone_r_value;
+	int default_mic_value;
+	int default_speaker_earpiece_value;
+} soundcontrol;
+#endif
 /* Codec supports 2 IIR filters */
 enum {
 	IIR1 = 0,
@@ -1283,7 +1291,60 @@ static void sdm660_tx_mute_update_callback(struct work_struct *work)
 }
 
 #ifdef CONFIG_SOUND_CONTROL
-struct snd_soc_codec *sound_control_codec_ptr;
+static struct snd_soc_codec *sound_control_codec_ptr;
+//Headphones
+static int headphones_boost_l = 0;
+static int headphones_boost_r = 0;
+static int headphones_boost_min = -20;
+static int headphones_boost_limit = 20;
+//Micrphone
+static int mic_boost = 0;
+static int mic_boost_min = -20;
+static int mic_boost_limit = 20;
+//Speaker & Earpiece
+static int speaker_earpiece_boost = 0;
+static int speaker_earpiece_boost_min = -20;
+static int speaker_earpiece_boost_limit = 20;
+
+static void update_headphones_volume_boost(unsigned int vol_boost_l, unsigned int vol_boost_r)
+{
+	int default_val_l = soundcontrol.default_headphone_l_value;
+	int boosted_val_l = default_val_l + vol_boost_l;
+	int default_val_r = soundcontrol.default_headphone_r_value;
+	int boosted_val_r = default_val_r + vol_boost_r;
+
+	pr_info("Sound Control: Headphones default values Left: %d Right: %d\n", default_val_l, default_val_r);
+
+	snd_soc_write(sound_control_codec_ptr, MSM89XX_CDC_CORE_RX1_VOL_CTL_B2_CTL, boosted_val_l);
+ 	snd_soc_write(sound_control_codec_ptr, MSM89XX_CDC_CORE_RX2_VOL_CTL_B2_CTL, boosted_val_r);
+
+ 	pr_info("Sound Control: Boosted Headphones Left RX1 value %d\n", boosted_val_l);
+ 	pr_info("Sound Control: Boosted Headphones Right RX2 value %d\n", boosted_val_r);
+}
+
+static void update_mic_gain(int vol_boost)
+{
+	int default_val = soundcontrol.default_mic_value;
+	int boosted_val = default_val + vol_boost;
+
+	pr_info("Sound Control: Mic default value %d\n", default_val);
+
+	snd_soc_write(sound_control_codec_ptr, MSM89XX_CDC_CORE_TX1_VOL_CTL_GAIN, boosted_val);
+
+ 	pr_info("Sound Control: Boosted Primary Mic TX6 value by %d\n", boosted_val);
+}
+
+static void update_speaker_earpiece_gain(int vol_boost)
+{
+	int default_val = soundcontrol.default_speaker_earpiece_value;
+	int boosted_val = default_val + vol_boost;
+
+	pr_info("Sound Control: Earpiece/Speaker default value %d\n", default_val);
+
+	snd_soc_write(sound_control_codec_ptr, MSM89XX_CDC_CORE_RX3_VOL_CTL_B2_CTL, boosted_val);
+
+ 	pr_info("Sound Control: Boosted Earpiece/Speaker value by %d\n", boosted_val);
+}
 
 static ssize_t headphone_gain_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -1340,10 +1401,43 @@ static ssize_t mic_gain_show(struct kobject *kobj,
 		mic_gain_show,
 		mic_gain_store);
 
+static ssize_t speaker_earpiece_gain_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", speaker_earpiece_boost);
+}
+static ssize_t speaker_earpiece_gain_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int input;
+ 	sscanf(buf, "%d", &input);
+ 	if (input != speaker_earpiece_boost) {
+		if (input < speaker_earpiece_boost_min)
+			input = speaker_earpiece_boost_min;
+
+		if (input > speaker_earpiece_boost_limit)
+			input = speaker_earpiece_boost_limit;
+
+		pr_info("New speaker/earpiece boost: %d\n", input);
+
+		speaker_earpiece_boost = input;
+
+		update_speaker_earpiece_gain(speaker_earpiece_boost);
+	}
+ 	return count;
+}
+
+static struct kobj_attribute speaker_gain_attribute =
+	__ATTR(speaker_gain, 0664, speaker_earpiece_gain_show, speaker_earpiece_gain_store);
+
+static struct kobj_attribute earpiece_gain_attribute =
+	__ATTR(earpiece_gain, 0664, speaker_earpiece_gain_show, speaker_earpiece_gain_store);
 
 static struct attribute *sound_control_attrs[] = {
 		&headphone_gain_attribute.attr,
 		&mic_gain_attribute.attr,
+		&speaker_gain_attribute.attr,
+		&earpiece_gain_attribute.attr,
 		NULL,
 };
 
@@ -1411,6 +1505,12 @@ pr_err("%s enter\n", __func__);
 
 	snd_soc_dapm_sync(dapm);
 
+#ifdef CONFIG_SOUND_CONTROL
+ 	soundcontrol.default_headphone_l_value = snd_soc_read(codec, MSM89XX_CDC_CORE_RX1_VOL_CTL_B2_CTL);
+ 	soundcontrol.default_headphone_r_value = snd_soc_read(codec, MSM89XX_CDC_CORE_RX2_VOL_CTL_B2_CTL);
+ 	soundcontrol.default_mic_value = snd_soc_read(codec, MSM89XX_CDC_CORE_TX1_VOL_CTL_GAIN);
+ 	soundcontrol.default_speaker_earpiece_value = snd_soc_read(codec, MSM89XX_CDC_CORE_RX3_VOL_CTL_B2_CTL);
+#endif
 	return 0;
 }
 
