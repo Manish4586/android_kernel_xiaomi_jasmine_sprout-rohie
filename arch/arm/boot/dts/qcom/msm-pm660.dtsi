@@ -690,5 +690,6 @@
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-res-cal-period = <4>;
 			qcom,correct-lra-drive-freq;
+	      };
 	};
 };
