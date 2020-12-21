@@ -130,6 +130,23 @@ static char *initcall_command_line;
 static char *execute_command;
 static char *ramdisk_execute_command;
 
+bool miuirom = true;
+static int __init set_miui_rom(char *val)
+{
+	unsigned int temp;
+
+	get_option(&val, &temp);
+
+	if (temp) {
+		miuirom = true;
+	} else {
+		miuirom = false;
+	}
+
+	return 0;
+}
+__setup("miui=", set_miui_rom);
+
 /*
  * Used to generate warnings if static_key manipulation functions are used
  * before jump_label_init is called.

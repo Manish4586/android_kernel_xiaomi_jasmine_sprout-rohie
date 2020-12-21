@@ -70,6 +70,8 @@
 #define EXPORT_COMPAT(x)
 #endif
 
+extern bool miuirom;
+
 #define MAX_FBI_LIST 32
 
 #ifndef TARGET_HW_MDSS_MDP3
@@ -359,6 +361,14 @@ static struct led_classdev backlight_led = {
 	.brightness_set = mdss_fb_set_bl_brightness,
 	.brightness_get = mdss_fb_get_bl_brightness,
 	.max_brightness = MDSS_MAX_BL_BRIGHTNESS,
+};
+
+static struct led_classdev backlight_led_high = {
+	.name           = "lcd-backlight",
+	.brightness     = MDSS_MAX_BL_BRIGHTNESS_HIGH / 2,
+	.brightness_set = mdss_fb_set_bl_brightness,
+	.brightness_get = mdss_fb_get_bl_brightness,
+	.max_brightness = MDSS_MAX_BL_BRIGHTNESS_HIGH,
 };
 
 static ssize_t mdss_fb_get_type(struct device *dev,
@@ -2041,11 +2051,17 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 
 	mfd->ext_ad_ctrl = -1;
-	if (mfd->panel_info && mfd->panel_info->brightness_max > 0)
-		MDSS_BRIGHT_TO_BL(mfd->bl_level, backlight_led.brightness,
-		mfd->panel_info->bl_max, mfd->panel_info->brightness_max);
-	else
+	if (mfd->panel_info && mfd->panel_info->brightness_max > 0) {
+		if (miuirom) {
+			MDSS_BRIGHT_TO_BL(mfd->bl_level, backlight_led.brightness,
+			mfd->panel_info->bl_max, mfd->panel_info->brightness_max);
+		} else {
+			MDSS_BRIGHT_TO_BL(mfd->bl_level, backlight_led_high.brightness,
+			mfd->panel_info->bl_max, mfd->panel_info->brightness_max);
+		}
+		} else {
 		mfd->bl_level = 0;
+	}
 
 	mfd->bl_scale = 1024;
 	mfd->ad_bl_level = 0;
@@ -2053,7 +2069,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->calib_mode_bl = 0;
 	mfd->unset_bl_level = U32_MAX;
 	mfd->bl_extn_level = -1;
-	mfd->bl_level_usr = backlight_led.brightness;
+	if (miuirom)
+		mfd->bl_level_usr = backlight_led.brightness;
+	else
+		mfd->bl_level_usr = backlight_led_high.brightness;
 
 	mfd->pdev = pdev;
 
@@ -2106,12 +2125,21 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	/* android supports only one lcd-backlight/lcd for now */
 	if (!lcd_backlight_registered) {
+	if (miuirom) {
 		backlight_led.brightness = mfd->panel_info->brightness_max;
 		backlight_led.max_brightness = mfd->panel_info->brightness_max;
 		if (led_classdev_register(&pdev->dev, &backlight_led))
 			pr_err("led_classdev_register failed\n");
 		else
 			lcd_backlight_registered = 1;
+		} else {
+			backlight_led_high.brightness = mfd->panel_info->brightness_max;
+			backlight_led_high.max_brightness = mfd->panel_info->brightness_max;
+			if (led_classdev_register(&pdev->dev, &backlight_led_high))
+				pr_err("led_classdev_register failed\n");
+			else
+				lcd_backlight_registered = 1;
+		}
 	}
 
 	mdss_fb_init_panel_modes(mfd, pdata);
@@ -2216,7 +2244,10 @@ static int mdss_fb_remove(struct platform_device *pdev)
 
 	if (lcd_backlight_registered) {
 		lcd_backlight_registered = 0;
-		led_classdev_unregister(&backlight_led);
+		if (miuirom)
+			led_classdev_unregister(&backlight_led);
+		else
+			led_classdev_unregister(&backlight_led_high);
 	}
 
 	return 0;
