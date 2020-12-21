@@ -936,7 +936,7 @@ static struct schedtune *getSchedtune(char *st_name)
 		struct schedtune *st = allocated_group[idx];
 
 		if (!st) {
-			pr_warn("SCHEDTUNE: Could not find %s\n", st_name);
+			//pr_warn("SCHEDTUNE: Could not find %s\n", st_name);
 			break;
 		}
 
