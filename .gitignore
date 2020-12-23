@@ -51,6 +51,8 @@ Module.symvers
 /vmlinuz
 /System.map
 /Module.markers
+out
+sdm660.sh
 
 #
 # Debian directory (make deb-pkg)
