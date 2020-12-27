@@ -1008,6 +1008,8 @@ static void nvt_ts_work_func(struct work_struct *work)
 	uint32_t position = 0;
 	uint32_t input_x = 0;
 	uint32_t input_y = 0;
+	uint32_t input_w = 0;
+	uint32_t input_p = 0;
 	uint8_t input_id = 0;
 #if MT_PROTOCOL_B
 	uint8_t press_id[TOUCH_MAX_FINGER_NUM] = {0};
@@ -1054,8 +1056,24 @@ static void nvt_ts_work_func(struct work_struct *work)
 			/* update interrupt timer */
 			irq_timer = jiffies;
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
-			input_x = (uint32_t) (point_data[position + 1] << 4) + (uint32_t) (point_data[position + 3] >> 4);
-			input_y = (uint32_t) (point_data[position + 2] << 4) + (uint32_t) (point_data[position + 3] & 0x0F);
+			input_x = (uint32_t)(point_data[position + 1] << 4) + (uint32_t) (point_data[position + 3] >> 4);
+			input_y = (uint32_t)(point_data[position + 2] << 4) + (uint32_t) (point_data[position + 3] & 0x0F);
+			if ((input_x < 0) || (input_y < 0))
+				continue;
+			if ((input_x > ts->abs_x_max) || (input_y > ts->abs_y_max))
+				continue;
+			input_w = (uint32_t)(point_data[position + 4]);
+			if (input_w == 0)
+				input_w = 1;
+			if (i < 2) {
+				input_p = (uint32_t)(point_data[position + 5]) + (uint32_t)(point_data[i + 63] << 8);
+				if (input_p > TOUCH_FORCE_NUM)
+					input_p = TOUCH_FORCE_NUM;
+			} else {
+				input_p = (uint32_t)(point_data[position + 5]);
+			}
+			if (input_p == 0)
+				input_p = 1;
 
 #if MT_PROTOCOL_B
 			press_id[input_id - 1] = 1;
@@ -1068,7 +1086,8 @@ static void nvt_ts_work_func(struct work_struct *work)
 
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X, input_x);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, input_y);
-			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, TOUCH_FORCE_NUM);
+			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, input_w);
+			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, input_p);
 
 #if !(MT_PROTOCOL_B)
 			input_mt_sync(ts->input_dev);
@@ -1082,6 +1101,7 @@ static void nvt_ts_work_func(struct work_struct *work)
 	for (i = 0; i < ts->max_touch_num; i++) {
 		if (likely(press_id[i] != 1)) {
 			input_mt_slot(ts->input_dev, i);
+			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
 			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, false);
 		}
