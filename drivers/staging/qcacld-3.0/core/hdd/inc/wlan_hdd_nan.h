@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -25,56 +25,54 @@
  * WLAN Host Device Driver NAN API specification
  */
 
-struct hdd_context_s;
+struct hdd_context;
 
 #ifdef WLAN_FEATURE_NAN
 struct wiphy;
 struct wireless_dev;
 
-int wlan_hdd_cfg80211_nan_request(struct wiphy *wiphy,
-				  struct wireless_dev *wdev,
-				  const void *data,
-				  int data_len);
+bool wlan_hdd_nan_is_supported(struct hdd_context *hdd_ctx);
 
 /**
- * wlan_hdd_nan_is_supported() - HDD NAN support query function
+ * wlan_hdd_cfg80211_nan_ext_request() - handle NAN Extended request
+ * @wiphy:   pointer to wireless wiphy structure.
+ * @wdev:    pointer to wireless_dev structure.
+ * @data:    Pointer to the data to be passed via vendor interface
+ * @data_len:Length of the data to be passed
  *
- * This function is called to determine if NAN is supported by the
- * driver and by the firmware.
+ * This function is called by userspace to send a NAN request to
+ * firmware.  This is an SSR-protected wrapper function.
  *
- * Return: true if NAN is supported by the driver and firmware
+ * Return: 0 on success, negative errno on failure
  */
-static inline bool wlan_hdd_nan_is_supported(hdd_context_t *hdd_ctx)
-{
-	return hdd_ctx->config->enable_nan_support &&
-		sme_is_feature_supported_by_fw(NAN);
-}
+int wlan_hdd_cfg80211_nan_ext_request(struct wiphy *wiphy,
+				      struct wireless_dev *wdev,
+				      const void *data,
+				      int data_len);
 
-/**
- * hdd_nan_populate_cds_config() - Populate NAN cds configuration
- * @cds_cfg: CDS Configuration
- * @hdd_ctx: Pointer to hdd context
- *
- * Return: none
- */
-static inline void hdd_nan_populate_cds_config(struct cds_config_info *cds_cfg,
-			hdd_context_t *hdd_ctx)
-{
-	cds_cfg->is_nan_enabled = hdd_ctx->config->enable_nan_support;
-}
-void wlan_hdd_cfg80211_nan_callback(void *ctx, tSirNanEvent *msg);
-#else
-static inline bool wlan_hdd_nan_is_supported(hdd_context_t *hdd_ctx)
+#define FEATURE_NAN_VENDOR_COMMANDS					\
+	{                                                               \
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,                \
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_NAN_EXT,       \
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |                   \
+			 WIPHY_VENDOR_CMD_NEED_NETDEV |                 \
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,                 \
+		.doit = wlan_hdd_cfg80211_nan_ext_request               \
+	},								\
+	{                                                               \
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,                \
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_NDP,           \
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |                   \
+			WIPHY_VENDOR_CMD_NEED_NETDEV |                  \
+			WIPHY_VENDOR_CMD_NEED_RUNNING,                  \
+		.doit = wlan_hdd_cfg80211_process_ndp_cmd               \
+	},
+#else /* WLAN_FEATURE_NAN */
+#define FEATURE_NAN_VENDOR_COMMANDS
+
+static inline bool wlan_hdd_nan_is_supported(struct hdd_context *hdd_ctx)
 {
 	return false;
-}
-static inline void hdd_nan_populate_cds_config(struct cds_config_info *cds_cfg,
-			hdd_context_t *hdd_ctx)
-{
-}
-static inline void wlan_hdd_cfg80211_nan_callback(void *ctx,
-						  tSirNanEvent *msg)
-{
 }
 #endif /* WLAN_FEATURE_NAN */
 #endif /* __WLAN_HDD_NAN_H */

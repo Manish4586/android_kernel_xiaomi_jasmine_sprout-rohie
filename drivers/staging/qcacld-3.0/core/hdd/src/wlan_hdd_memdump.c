@@ -23,14 +23,14 @@
  *
  */
 
-#include <sme_api.h>
-#include <wlan_hdd_includes.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/proc_fs.h> /* Necessary because we use the proc fs */
 #include <linux/uaccess.h> /* for copy_to_user */
-
+#include "osif_sync.h"
+#include <sme_api.h>
+#include <wlan_hdd_includes.h>
 
 #ifdef MULTI_IF_NAME
 #define PROCFS_DRIVER_DUMP_DIR "debugdriver" MULTI_IF_NAME
@@ -41,7 +41,6 @@
 #define PROCFS_DRIVER_DUMP_PERM 0444
 
 static struct proc_dir_entry *proc_file_driver, *proc_dir_driver;
-
 
 /** memdump_get_file_data() - get data available in proc file
  *
@@ -57,13 +56,12 @@ static void *memdump_get_file_data(struct file *file)
 	void *hdd_ctx;
 
 	hdd_ctx = PDE_DATA(file_inode(file));
-
 	return hdd_ctx;
 }
 
 void hdd_driver_mem_cleanup(void)
 {
-	hdd_context_t *hdd_ctx;
+	struct hdd_context *hdd_ctx;
 
 	hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
 	if (!hdd_ctx) {
@@ -97,7 +95,7 @@ static ssize_t __hdd_driver_memdump_read(struct file *file, char __user *buf,
 {
 	int status;
 	QDF_STATUS qdf_status;
-	hdd_context_t *hdd_ctx;
+	struct hdd_context *hdd_ctx;
 	size_t no_of_bytes_read = 0;
 
 	hdd_ctx = memdump_get_file_data(file);
@@ -109,24 +107,25 @@ static ssize_t __hdd_driver_memdump_read(struct file *file, char __user *buf,
 
 	mutex_lock(&hdd_ctx->memdump_lock);
 	if (*pos < 0) {
-		mutex_unlock(&hdd_ctx->memdump_lock);
 		hdd_err("Invalid start offset for memdump read");
+		mutex_unlock(&hdd_ctx->memdump_lock);
 		return -EINVAL;
-	} else if (!count || (hdd_ctx->driver_dump_size &&
-				(*pos >= hdd_ctx->driver_dump_size))) {
+	}
+
+	if (!count ||
+	    (hdd_ctx->driver_dump_size && *pos >= hdd_ctx->driver_dump_size)) {
 		mutex_unlock(&hdd_ctx->memdump_lock);
 		hdd_debug("No more data to copy");
 		return 0;
-	} else if ((*pos == 0) || (hdd_ctx->driver_dump_mem == NULL)) {
-		/*
-		 * Allocate memory for Driver memory dump.
-		 */
+	}
+
+	if (*pos == 0 || !hdd_ctx->driver_dump_mem) {
+		/* Allocate memory for Driver memory dump */
 		if (!hdd_ctx->driver_dump_mem) {
 			hdd_ctx->driver_dump_mem =
 				qdf_mem_malloc(DRIVER_MEM_DUMP_SIZE);
 			if (!hdd_ctx->driver_dump_mem) {
 				mutex_unlock(&hdd_ctx->memdump_lock);
-				hdd_err("qdf_mem_malloc failed");
 				return -ENOMEM;
 			}
 		}
@@ -143,8 +142,7 @@ static ssize_t __hdd_driver_memdump_read(struct file *file, char __user *buf,
 		if (qdf_status != QDF_STATUS_SUCCESS)
 			hdd_err("Error in dump driver information, status %d",
 				qdf_status);
-		hdd_debug("driver_dump_size: %d",
-					hdd_ctx->driver_dump_size);
+		hdd_debug("driver_dump_size: %d", hdd_ctx->driver_dump_size);
 	}
 
 	if (count > hdd_ctx->driver_dump_size - *pos)
@@ -154,8 +152,8 @@ static ssize_t __hdd_driver_memdump_read(struct file *file, char __user *buf,
 
 	if (copy_to_user(buf, hdd_ctx->driver_dump_mem + *pos,
 					no_of_bytes_read)) {
-		mutex_unlock(&hdd_ctx->memdump_lock);
 		hdd_err("copy to user space failed");
+		mutex_unlock(&hdd_ctx->memdump_lock);
 		return -EFAULT;
 	}
 
@@ -188,13 +186,18 @@ static ssize_t __hdd_driver_memdump_read(struct file *file, char __user *buf,
 static ssize_t hdd_driver_memdump_read(struct file *file, char __user *buf,
 				       size_t count, loff_t *pos)
 {
-	ssize_t len;
+	struct osif_driver_sync *driver_sync;
+	ssize_t err_size;
 
-	cds_ssr_protect(__func__);
-	len = __hdd_driver_memdump_read(file, buf, count, pos);
-	cds_ssr_unprotect(__func__);
+	err_size = osif_driver_sync_op_start(&driver_sync);
+	if (err_size)
+		return err_size;
 
-	return len;
+	err_size = __hdd_driver_memdump_read(file, buf, count, pos);
+
+	osif_driver_sync_op_stop(driver_sync);
+
+	return err_size;
 }
 
 /**
@@ -205,7 +208,7 @@ static ssize_t hdd_driver_memdump_read(struct file *file, char __user *buf,
  * dump feature
  */
 static const struct file_operations driver_dump_fops = {
-read: hdd_driver_memdump_read
+	.read = hdd_driver_memdump_read,
 };
 
 /**
@@ -217,10 +220,10 @@ read: hdd_driver_memdump_read
  *
  * Return:   0 on success, error code otherwise.
  */
-static int hdd_driver_memdump_procfs_init(hdd_context_t *hdd_ctx)
+static int hdd_driver_memdump_procfs_init(struct hdd_context *hdd_ctx)
 {
 	proc_dir_driver = proc_mkdir(PROCFS_DRIVER_DUMP_DIR, NULL);
-	if (proc_dir_driver == NULL) {
+	if (!proc_dir_driver) {
 		pr_debug("Could not initialize /proc/%s\n",
 			 PROCFS_DRIVER_DUMP_DIR);
 		return -ENOMEM;
@@ -229,7 +232,7 @@ static int hdd_driver_memdump_procfs_init(hdd_context_t *hdd_ctx)
 	proc_file_driver = proc_create_data(PROCFS_DRIVER_DUMP_NAME,
 				     PROCFS_DRIVER_DUMP_PERM, proc_dir_driver,
 				     &driver_dump_fops, hdd_ctx);
-	if (proc_file_driver == NULL) {
+	if (!proc_file_driver) {
 		remove_proc_entry(PROCFS_DRIVER_DUMP_NAME, proc_dir_driver);
 		pr_debug("Could not initialize /proc/%s\n",
 			  PROCFS_DRIVER_DUMP_NAME);
@@ -270,7 +273,7 @@ static void hdd_driver_memdump_procfs_remove(void)
 int hdd_driver_memdump_init(void)
 {
 	int status;
-	hdd_context_t *hdd_ctx;
+	struct hdd_context *hdd_ctx;
 
 	hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
 	if (!hdd_ctx) {
