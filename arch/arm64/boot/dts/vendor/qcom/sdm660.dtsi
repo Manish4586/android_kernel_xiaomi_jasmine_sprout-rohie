@@ -31,7 +31,7 @@
 
 	chosen {
 		stdout-path = "serial0";
-		bootargs = "noirqdebug nodebugmon rcu_nocbs=0-5";
+		bootargs = "noirqdebug nodebugmon rcu_nocbs=0-5 kpti=off";
 	};
 
 	psci {
