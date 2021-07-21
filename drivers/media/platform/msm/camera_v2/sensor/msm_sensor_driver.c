@@ -1415,12 +1415,12 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 		slave_info->i2c_freq_mode = slave_info32->i2c_freq_mode;
 		slave_info->sensor_id_info = slave_info32->sensor_id_info;
-#ifdef CONFIG_MACH_XIAOMI_SDM660
+#if defined(CONFIG_MACH_XIAOMI_SDM660) || defined(CONFIG_MACH_QCOM_CAMERA)
 		slave_info->vendor_id_info = slave_info32->vendor_id_info;
 		slave_info->vcm_id_info = slave_info32->vcm_id_info;
-#ifdef CONFIG_MACH_XIAOMI_NEW_CAMERA
-        slave_info->lens_id_info = slave_info32->lens_id_info;
 #endif
+#if defined(CONFIG_MACH_XIAOMI_NEW_CAMERA) || !defined(CONFIG_MACH_QCOM_CAMERA)
+		slave_info->lens_id_info = slave_info32->lens_id_info;
 #endif
 		slave_info->slave_addr = slave_info32->slave_addr;
 		slave_info->power_setting_array.size =
@@ -1620,7 +1620,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		if (slave_info->sensor_id_info.sensor_id ==
 			s_ctrl->sensordata->cam_slave_info->
 				sensor_id_info.sensor_id &&
-#ifdef CONFIG_MACH_XIAOMI_SDM660
+#if defined(CONFIG_MACH_XIAOMI_SDM660) || defined(CONFIG_MACH_QCOM_CAMERA)
 			slave_info->vendor_id_info.vendor_id ==
 			s_ctrl->sensordata->cam_slave_info->vendor_id_info.vendor_id &&
 #endif
@@ -1666,6 +1666,11 @@ int32_t msm_sensor_driver_probe(void *setting,
 		slave_info->sensor_id_info.sensor_id_reg_addr;
 	camera_info->sensor_id = slave_info->sensor_id_info.sensor_id;
 	camera_info->sensor_id_mask = slave_info->sensor_id_info.sensor_id_mask;
+
+#ifdef CONFIG_MACH_QCOM_CAMERA
+	s_ctrl->sensordata->vendor_id_info = &slave_info->vendor_id_info;
+	s_ctrl->sensordata->vcm_id_info = &slave_info->vcm_id_info;
+#endif
 
 	/* Fill CCI master, slave address and CCI default params */
 	if (!s_ctrl->sensor_i2c_client) {
@@ -1723,12 +1728,12 @@ CSID_TG:
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
 	s_ctrl->sensordata->ois_name = slave_info->ois_name;
 	s_ctrl->sensordata->flash_name = slave_info->flash_name;
-#ifdef CONFIG_MACH_XIAOMI_SDM660
+#if defined(CONFIG_MACH_XIAOMI_SDM660) || !defined(CONFIG_MACH_QCOM_CAMERA)
 	s_ctrl->sensordata->vendor_id_info = &(slave_info->vendor_id_info);
 	s_ctrl->sensordata->vcm_id_info = &(slave_info->vcm_id_info);
-#ifdef CONFIG_MACH_XIAOMI_NEW_CAMERA
-    s_ctrl->sensordata->lens_id_info = &(slave_info->lens_id_info);
 #endif
+#if defined(CONFIG_MACH_XIAOMI_NEW_CAMERA) || !defined(CONFIG_MACH_QCOM_CAMERA)
+	s_ctrl->sensordata->lens_id_info = &(slave_info->lens_id_info);
 #endif
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
